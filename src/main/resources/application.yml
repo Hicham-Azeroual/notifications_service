@@ -1,0 +1,58 @@
+# =====================================================
+# application.yml - SERVICE NOTIFICATION (WebFlux)
+# =====================================================
+
+# =====================================================
+# SERVEUR
+# =====================================================
+server:
+  port: 8081
+
+# =====================================================
+# CONFIGURATION SPRING (Application, Mongo, RabbitMQ)
+# =====================================================
+spring:
+  application:
+    name: notifications
+
+  # =====================================================
+  # CONNEXION MONGODB (Base de données des notifications)
+  # =====================================================
+
+  #  mongodb:
+  #      # URI complète avec le nom de la base de données
+  #    uri: mongodb+srv://hichamazeroual:hichamazeroual@notifications.h6mudxg.mongodb.net/?appName=notifications
+  mongodb:
+    host: localhost
+    port: 27017
+    database: sih-notifications
+
+  # =====================================================
+  # CONFIGURATION RABBITMQ
+  # =====================================================
+  rabbitmq:
+    host: localhost # En prod : rabbitmq.sih.internal
+    port: 5672 # SSL : 5671
+    username: ${RABBITMQ_USER:guest} # Fallback sur 'guest' si variable non définie
+    password: ${RABBITMQ_PASSWORD:guest} # Fallback sur 'guest' si variable non définie
+    virtual-host: / # Remis à la valeur par défaut (souvent "/" en local) au lieu de /sih
+    listener:
+      simple:
+        acknowledge-mode: manual # ACK manuel obligatoire
+        prefetch: 10 # Max 10 messages à la fois
+        concurrency: 5 # Nb threads parallèles pour écouter toutes les queues
+  debug:
+    enabled: true
+    delay-ms: 4000
+    before-save-ms: 25000
+    after-save-ms: 1500
+
+# =====================================================
+# LOGGING (très utile pour le debug des notifications)
+# =====================================================
+logging:
+  level:
+    com.enova.notifications: DEBUG # Change to DEBUG to see detailed logs
+    org.springframework.data.mongodb: DEBUG # Pour voir les requêtes Mongo
+    org.springframework.web.reactive: INFO
+    reactor: INFO
