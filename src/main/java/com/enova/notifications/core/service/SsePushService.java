@@ -49,11 +49,13 @@ public class SsePushService {
 
         return sink.asFlux()
                 .mergeWith(heartbeat)
-                .doOnCancel(() -> cleanup(userId, groupKey, sink))
-                .doOnError(e -> cleanup(userId, groupKey, sink));
+                .doFinally(signal -> cleanup(userId, groupKey, sink));
     }
 
     public Mono<Void> push(NotificationDTO dto) {
+
+
+        System.out.println("Notification reçue : " + dto);
         return Mono.fromRunnable(() -> {
             if (dto.getDestinataires() != null && !dto.getDestinataires().isEmpty()) {
                 // CAS 1 : destinataires précis — O(1) via userSinks
@@ -95,7 +97,8 @@ public class SsePushService {
             String groupKey,
             Sinks.Many<ServerSentEvent<NotificationDTO>> sink) {
 
-        // Suppression atomique des deux maps
+        sink.tryEmitComplete();
+
         userSinks.computeIfPresent(userId, (k, set) -> {
             set.remove(sink);
             return set.isEmpty() ? null : set;
@@ -104,7 +107,7 @@ public class SsePushService {
             set.remove(sink);
             return set.isEmpty() ? null : set;
         });
-        log.debug("SSE cleanup userId={} group={}", userId, groupKey);
+        log.info("SSE deconnecte : userId={} group={} restants={}", userId, groupKey, countActive());
     }
 
     public int countActive() {

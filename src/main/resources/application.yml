@@ -52,7 +52,27 @@ spring:
 # =====================================================
 logging:
   level:
+    # Application logs
     com.enova.notifications: DEBUG # Change to DEBUG to see detailed logs
+
+    # MongoDB logs
     org.springframework.data.mongodb: DEBUG # Pour voir les requêtes Mongo
+
+    # RabbitMQ / AMQP logs (IMPORTANT for message tracing)
+    org.springframework.amqp: DEBUG # Spring AMQP framework
+    org.springframework.rabbit: DEBUG # Spring RabbitMQ integration
+    com.rabbitmq.client: DEBUG # Low-level RabbitMQ client library
+
+    # Reactive streams
     org.springframework.web.reactive: INFO
     reactor: INFO
+
+    # Other
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/notifications.log
+    max-size: 10MB
+    max-history: 10
