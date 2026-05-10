@@ -2,76 +2,52 @@
 # application.yml - SERVICE NOTIFICATION (WebFlux)
 # =====================================================
 
-# =====================================================
-# SERVEUR
-# =====================================================
 server:
   port: 8081
 
-# =====================================================
-# CONFIGURATION SPRING (Application, Mongo, RabbitMQ)
-# =====================================================
 spring:
   application:
     name: notifications
 
   # =====================================================
-  # CONNEXION MONGODB (Base de données des notifications)
+  # CASSANDRA
   # =====================================================
-
-  #  mongodb:
-  #      # URI complète avec le nom de la base de données
-  #    uri: mongodb+srv://hichamazeroual:hichamazeroual@notifications.h6mudxg.mongodb.net/?appName=notifications
-  mongodb:
-    host: localhost
-    port: 27017
-    database: sih-notifications
+  cassandra:
+    contact-points: localhost   # En prod : adresse du cluster Cassandra de l'infra
+    port: 9042
+    keyspace-name: sih_notifications
+    local-datacenter: datacenter1
+    # CREATE_IF_NOT_EXISTS en dev — NONE en prod (migrations manuelles via schema.cql)
+    schema-action: CREATE_IF_NOT_EXISTS
 
   # =====================================================
-  # CONFIGURATION RABBITMQ
+  # RABBITMQ
   # =====================================================
   rabbitmq:
-    host: localhost # En prod : rabbitmq.sih.internal
-    port: 5672 # SSL : 5671
-    username: ${RABBITMQ_USER:guest} # Fallback sur 'guest' si variable non définie
-    password: ${RABBITMQ_PASSWORD:guest} # Fallback sur 'guest' si variable non définie
-    virtual-host: / # Remis à la valeur par défaut (souvent "/" en local) au lieu de /sih
+    host: localhost
+    port: 5672
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: /
     listener:
       simple:
-        acknowledge-mode: manual # ACK manuel obligatoire
-        prefetch: 10 # Max 10 messages à la fois
-        concurrency: 5 # Nb threads parallèles pour écouter toutes les queues
-  debug:
-    enabled: true
-    delay-ms: 4000
-    before-save-ms: 25000
-    after-save-ms: 1500
+        acknowledge-mode: manual
+        prefetch: 10
+        concurrency: 5
 
 # =====================================================
-# LOGGING (très utile pour le debug des notifications)
+# LOGGING
 # =====================================================
 logging:
   level:
-    # Application logs
-    com.enova.notifications: DEBUG # Change to DEBUG to see detailed logs
-
-    # MongoDB logs
-    org.springframework.data.mongodb: DEBUG # Pour voir les requêtes Mongo
-
-    # RabbitMQ / AMQP logs (IMPORTANT for message tracing)
-    org.springframework.amqp: DEBUG # Spring AMQP framework
-    org.springframework.rabbit: DEBUG # Spring RabbitMQ integration
-    com.rabbitmq.client: DEBUG # Low-level RabbitMQ client library
-
-    # Reactive streams
+    com.enova.notifications: DEBUG
+    org.springframework.data.cassandra: INFO
+    org.springframework.amqp: INFO
     org.springframework.web.reactive: INFO
     reactor: INFO
-
-    # Other
-    org.springframework.web: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file:    "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
   file:
     name: logs/notifications.log
     max-size: 10MB

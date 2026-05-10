@@ -1,0 +1,62 @@
+services:
+
+  # ─────────────────────────────────────────
+  # CASSANDRA
+  # ─────────────────────────────────────────
+  cassandra:
+    image: cassandra:4.1
+    container_name: sih-cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: sih-cluster
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_ENDPOINT_SNITCH: SimpleSnitch
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces'"]
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
+
+  # ─────────────────────────────────────────
+  # INITIALISATION DU SCHEMA
+  # ─────────────────────────────────────────
+  cassandra-init:
+    image: cassandra:4.1
+    container_name: sih-cassandra-init
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./src/main/resources/schema.cql:/schema.cql:ro
+    command: cqlsh sih-cassandra -f /schema.cql
+    restart: "no"
+
+  # ─────────────────────────────────────────
+  # RABBITMQ + MANAGEMENT UI
+  # http://localhost:15672
+  # guest / guest
+  # ─────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: sih-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  cassandra_data:
+  rabbitmq_data:

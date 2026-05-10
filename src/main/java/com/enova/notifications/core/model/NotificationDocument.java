@@ -4,17 +4,17 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.cassandra.core.mapping.Column;
+import org.springframework.data.cassandra.core.mapping.Indexed;
+import org.springframework.data.cassandra.core.mapping.Table;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
-// SOLUTION — @Builder.Default obligatoire avec Lombok
-@Document(collection = "notifications")
+@Table("notifications")
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,34 +22,32 @@ import java.util.Map;
 public class NotificationDocument {
 
     @Id
-    private String id;
-    private String type;
-    private String typeAlerte;
-    private String titre;
-    private String message;
-    private String module;
-    private String etablissementId;
-    private String roleCible;
-    private List<String> destinataires;
+    private UUID id;
 
-    // @Builder.Default : garantit la valeur même avec le pattern Builder
-    @Builder.Default
-    private Boolean lue       = false;
+    @Column private String type;
+    @Column("type_alerte")  private String typeAlerte;
+    @Column private String titre;
+    @Column private String message;
+    @Column private String module;
 
-    @Builder.Default
-    private Boolean acquittee = false;
+    // Index secondaires — permettent les requêtes par groupe
+    @Indexed
+    @Column("etablissement_id") private String etablissementId;
 
-    @Builder.Default
-    private Boolean resolue   = false;
+    @Indexed
+    @Column("role_cible")       private String roleCible;
 
-    private Map<String, Object> metadata;
+    @Column private List<String> destinataires;
 
-    @CreatedDate
-    private LocalDateTime createdAt;
-    private LocalDateTime lueAt;
-    private LocalDateTime acquitteeAt;
-    private String acquittePar;
+    @Builder.Default @Column private Boolean lue       = false;
+    @Builder.Default @Column private Boolean acquittee = false;
+    @Builder.Default @Column private Boolean resolue   = false;
 
-    @Indexed(expireAfterSeconds = 7_776_000) // TTL 90 jours
-    private LocalDateTime expiresAt;
+    // Map<String,String> car Cassandra ne supporte pas Map<String,Object> nativement
+    @Column private Map<String, String> metadata;
+
+    @Column("created_at")    private Instant createdAt;
+    @Column("lue_at")        private Instant lueAt;
+    @Column("acquittee_at")  private Instant acquitteeAt;
+    @Column("acquitte_par")  private String  acquittePar;
 }
