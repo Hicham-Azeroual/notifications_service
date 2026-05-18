@@ -46,13 +46,9 @@ public class NotificationController {
         return notificationService.getAllNotifications();
     }
 
-    // Compteur pour le badge rouge — nécessite établissement + rôle pour le multi-tenant
     @GetMapping("/count")
-    public Mono<Long> getUnreadCount(
-            @RequestParam String etablissementId,
-            @RequestParam String role) {
-
-        return notificationService.countUnreadNotifications(etablissementId, role);
+    public Mono<Long> getUnreadCount() {
+        return notificationService.countUnreadNotifications();
     }
 
     // Acquitter une notification

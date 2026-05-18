@@ -32,11 +32,13 @@ public class NotificationService {
 
     public Flux<NotificationDTO> getAllNotifications() {
         log.debug("Récupération de toutes les notifications");
-        return repository.findAll().map(mapper::toDto);
+        return repository.findAll().sort(Comparator.comparing(doc -> doc.getCreatedAt() != null ? doc.getCreatedAt() : Instant.EPOCH,
+                Comparator.reverseOrder()))
+                .map(mapper::toDto);
     }
 
-    public Mono<Long> countUnreadNotifications(String etablissementId, String roleCible) {
-        return repository.countByEtablissementIdAndRoleCibleAndLueFalse(etablissementId, roleCible);
+    public Mono<Long> countUnreadNotifications() {
+        return repository.countByLueFalse();
     }
 
     public Mono<NotificationDTO> acquitterNotification(String notificationId, String userId) {

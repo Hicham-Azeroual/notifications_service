@@ -10,30 +10,46 @@ spring:
     name: notifications
 
   # =====================================================
-  # CASSANDRA
+  # REDIS Configuration (Reactive / Lettuce)
   # =====================================================
-  cassandra:
-    contact-points: localhost   # En prod : adresse du cluster Cassandra de l'infra
-    port: 9042
-    keyspace-name: sih_notifications
-    local-datacenter: datacenter1
-    # CREATE_IF_NOT_EXISTS en dev — NONE en prod (migrations manuelles via schema.cql)
-    schema-action: CREATE_IF_NOT_EXISTS
+#  data:
+#    redis:
+#      host: redis-12736.crce296.us-east-1-6.ec2.cloud.redislabs.com
+#      port: 12736      # username: ${REDIS_USERNAME:default} # Uncomment if your Redis uses ACLs
+
 
   # =====================================================
-  # RABBITMQ
+  # CASSANDRA (Astra DB Configuration)
+  # =====================================================
+  cassandra:
+    # Note: keyspace-name and secure bundle are now handled by AstraDbConfig.java
+    schema-action: CREATE_IF_NOT_EXISTS
+    # Astra Client ID mapped to username
+    username: ygsxlYutLhaODPfbWFbkCbqu
+    # Astra Client Secret mapped to password
+    password: oxiNOzctjP6n,AiLbaXQOEsgFkY_FSC_jbZHv2JH9ugDH,nwTiM6a8oca7tjwlkEuO7y+xnT-y7s7ALW3if5-gZdu1IQRhy_vdtbJU.14idWxCwCgixm,l-K8UhyYqnu
+    request:
+      timeout: 10s
+    connection:
+      connect-timeout: 10s
+      init-query-timeout: 10s
+
+  # =====================================================
+  # RABBITMQ (CloudAMQP Configuration)
   # =====================================================
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-    virtual-host: /
+    host: campbell-01.lmq.cloudamqp.com
+    port: 5671
+    username: oiamnlba
+    password: ${RABBITMQ_PASSWORD:TtPZ9kriKG8uNyKIkY8WL2llizpMpntu}
+    virtual-host: oiamnlba
+    ssl:
+      enabled: true
     listener:
       simple:
         acknowledge-mode: manual
         prefetch: 10
-        concurrency: 5
+        concurrency: 1
 
 # =====================================================
 # LOGGING
@@ -44,10 +60,11 @@ logging:
     org.springframework.data.cassandra: INFO
     org.springframework.amqp: INFO
     org.springframework.web.reactive: INFO
+    # Added Redis logging
+    org.springframework.data.redis: INFO
     reactor: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file:    "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
   file:
     name: logs/notifications.log
     max-size: 10MB

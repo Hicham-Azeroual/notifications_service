@@ -19,10 +19,8 @@ public interface NotificationRepository
     Flux<NotificationDocument> findByEtablissementIdAndRoleCibleAndLueFalse(
             String etablissementId, String roleCible);
 
-    // Compteur badge — par partition établissement+rôle
     @AllowFiltering
-    Mono<Long> countByEtablissementIdAndRoleCibleAndLueFalse(
-            String etablissementId, String roleCible);
+    Mono<Long> countByLueFalse();
 
     // findById(UUID) est hérité de ReactiveCassandraRepository — utilisé par acquitter
 }

@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-// SOLUTION — CopyOnWriteArraySet pour supporter plusieurs onglets
 @Service
 @Slf4j
 public class SsePushService {
@@ -26,21 +25,20 @@ public class SsePushService {
     private final ConcurrentHashMap<String, CopyOnWriteArraySet<Sinks.Many<ServerSentEvent<NotificationDTO>>>> groupSinks =
             new ConcurrentHashMap<>();
 
+
+
     public Flux<ServerSentEvent<NotificationDTO>> subscribe(
             String userId, String role, String etablissementId) {
 
         Sinks.Many<ServerSentEvent<NotificationDTO>> sink =
                 Sinks.many().multicast().onBackpressureBuffer(256);
 
-        // ADD au lieu de PUT — supporte plusieurs onglets
         userSinks.computeIfAbsent(userId, k -> new CopyOnWriteArraySet<>()).add(sink);
 
-        // Index par groupe — pour le broadcast par role+etablissement
         String groupKey = role + "|" + etablissementId;
         groupSinks.computeIfAbsent(groupKey, k -> new CopyOnWriteArraySet<>()).add(sink);
 
-        log.info("SSE connecte : userId={} group={} total={}",
-                userId, groupKey, countActive());
+        log.info("SSE connecte : userId={} group={} total={}", userId, groupKey, countActive());
 
         Flux<ServerSentEvent<NotificationDTO>> heartbeat =
                 Flux.interval(Duration.ofSeconds(25))
@@ -53,34 +51,22 @@ public class SsePushService {
     }
 
     public Mono<Void> push(NotificationDTO dto) {
-
-
-        System.out.println("Notification reçue : " + dto);
         return Mono.fromRunnable(() -> {
             if (dto.getDestinataires() != null && !dto.getDestinataires().isEmpty()) {
-                // CAS 1 : destinataires précis — O(1) via userSinks
                 dto.getDestinataires().forEach(userId -> {
                     var sinks = userSinks.get(userId);
-                    if (sinks != null) {
-                        sinks.forEach(sink -> emitToSink(sink, dto, userId));
-                    }
+                    if (sinks != null) sinks.forEach(sink -> emitToSink(sink, dto, userId));
                 });
             } else if (dto.getRoleCible() != null && dto.getEtablissementId() != null) {
-                // CAS 2 : broadcast par groupe — MANQUAIT dans ton code
                 String groupKey = dto.getRoleCible() + "|" + dto.getEtablissementId();
                 var sinks = groupSinks.get(groupKey);
-                if (sinks != null) {
-                    sinks.forEach(sink -> emitToSink(sink, dto, "broadcast:" + groupKey));
-                }
+                if (sinks != null) sinks.forEach(sink -> emitToSink(sink, dto, "broadcast:" + groupKey));
             }
         }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
-    private void emitToSink(
-            Sinks.Many<ServerSentEvent<NotificationDTO>> sink,
-            NotificationDTO dto,
-            String userId) {
-
+    private void emitToSink(Sinks.Many<ServerSentEvent<NotificationDTO>> sink,
+                             NotificationDTO dto, String target) {
         Sinks.EmitResult result = sink.tryEmitNext(
                 ServerSentEvent.<NotificationDTO>builder()
                         .event("notification")
@@ -88,17 +74,13 @@ public class SsePushService {
                         .build()
         );
         if (result.isFailure()) {
-            log.warn("Emit echec userId={} result={}", userId, result);
+            log.warn("Emit echec target={} result={}", target, result);
         }
     }
 
-    private void cleanup(
-            String userId,
-            String groupKey,
-            Sinks.Many<ServerSentEvent<NotificationDTO>> sink) {
-
+    private void cleanup(String userId, String groupKey,
+                         Sinks.Many<ServerSentEvent<NotificationDTO>> sink) {
         sink.tryEmitComplete();
-
         userSinks.computeIfPresent(userId, (k, set) -> {
             set.remove(sink);
             return set.isEmpty() ? null : set;
@@ -111,7 +93,6 @@ public class SsePushService {
     }
 
     public int countActive() {
-        return userSinks.values().stream()
-                .mapToInt(CopyOnWriteArraySet::size).sum();
+        return userSinks.values().stream().mapToInt(CopyOnWriteArraySet::size).sum();
     }
 }
