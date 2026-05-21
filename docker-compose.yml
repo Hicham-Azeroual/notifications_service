@@ -57,6 +57,43 @@ services:
       timeout: 10s
       retries: 5
 
+  # ─────────────────────────────────────────
+  # JENKINS
+  # http://localhost:8080
+  # ─────────────────────────────────────────
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: sih-jenkins
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock   # Jenkins peut lancer Docker
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+
+  # ─────────────────────────────────────────
+  # SONARQUBE
+  # http://localhost:9000
+  # admin / admin
+  # ─────────────────────────────────────────
+  sonarqube:
+    image: sonarqube:community
+    container_name: sih-sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+
 volumes:
   cassandra_data:
   rabbitmq_data:
+  jenkins_data:
+  sonarqube_data:
+  sonarqube_logs:

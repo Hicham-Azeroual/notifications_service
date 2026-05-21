@@ -13,17 +13,11 @@ import reactor.core.publisher.Mono;
 @RestController
 @CrossOrigin(origins = "*")
 @RequestMapping("/api/notifications")
-@RequiredArgsConstructor // Permet d'injecter automatiquement les services sans écrire @Autowired
+@RequiredArgsConstructor
 public class NotificationController {
 
-    // J'utilise le NotificationService que nous avons créé précédemment
-    // pour garder ton code propre (Clean Architecture).
     private final NotificationService notificationService;
     private final SsePushService ssePushService;
-
-    // =========================================================
-    // TEMPS RÉEL (SSE)
-    // =========================================================
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<NotificationDTO>> stream(
@@ -31,18 +25,29 @@ public class NotificationController {
             @RequestParam String role,
             @RequestParam String etablissementId) {
 
-        return ssePushService.subscribe(userId, role, etablissementId);
+        // S'inscrire EN PREMIER dans l'inverted index — le sink bufferise
+        // toutes les notifications qui arrivent pendant qu'on lit Cassandra
+        Flux<ServerSentEvent<NotificationDTO>> realtime =
+                ssePushService.subscribe(userId, role, etablissementId);
+
+        // Récupérer les notifications non lues (user était offline)
+        Flux<ServerSentEvent<NotificationDTO>> historical =
+                notificationService.getUnreadNotifications(etablissementId, role)
+                        .map(dto -> ServerSentEvent.<NotificationDTO>builder()
+                                .event("notification")
+                                .data(dto)
+                                .build());
+
+        // Historique d'abord, puis temps réel sans interruption
+        return Flux.concat(historical, realtime);
     }
 
     // =========================================================
     // API REST CLASSIQUES
     // =========================================================
 
-    // Charger toutes les notifications existantes
     @GetMapping
     public Flux<NotificationDTO> getNotifications() {
-        System.out.println("endpoint getNotifications is called");
-
         return notificationService.getAllNotifications();
     }
 
@@ -51,7 +56,6 @@ public class NotificationController {
         return notificationService.countUnreadNotifications();
     }
 
-    // Acquitter une notification
     @PutMapping("/{id}/acquitter")
     public Mono<NotificationDTO> acquitter(
             @PathVariable String id,

@@ -5,11 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -18,11 +18,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
 public class SsePushService {
 
     // userId → Set de Sinks (support multi-onglets)
-    private final ConcurrentHashMap<String, CopyOnWriteArraySet<Sinks.Many<ServerSentEvent<NotificationDTO>>>> userSinks =
+    private final Map<String, Set<Sinks.Many<ServerSentEvent<NotificationDTO>>>> userSinks =
             new ConcurrentHashMap<>();
 
-    // groupKey (role|etablId) → Set de Sinks (support broadcast)
-    private final ConcurrentHashMap<String, CopyOnWriteArraySet<Sinks.Many<ServerSentEvent<NotificationDTO>>>> groupSinks =
+    // groupKey ("role|etablId") → Set de Sinks (inverted index broadcast)
+    private final Map<String, Set<Sinks.Many<ServerSentEvent<NotificationDTO>>>> groupSinks =
             new ConcurrentHashMap<>();
 
 
@@ -50,23 +50,23 @@ public class SsePushService {
                 .doFinally(signal -> cleanup(userId, groupKey, sink));
     }
 
-    public Mono<Void> push(NotificationDTO dto) {
-        return Mono.fromRunnable(() -> {
-            if (dto.getDestinataires() != null && !dto.getDestinataires().isEmpty()) {
-                dto.getDestinataires().forEach(userId -> {
-                    var sinks = userSinks.get(userId);
-                    if (sinks != null) sinks.forEach(sink -> emitToSink(sink, dto, userId));
-                });
-            } else if (dto.getRoleCible() != null && dto.getEtablissementId() != null) {
-                String groupKey = dto.getRoleCible() + "|" + dto.getEtablissementId();
-                var sinks = groupSinks.get(groupKey);
-                if (sinks != null) sinks.forEach(sink -> emitToSink(sink, dto, "broadcast:" + groupKey));
-            }
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+    public void push(NotificationDTO dto) {
+        if (dto.getDestinataires() != null && !dto.getDestinataires().isEmpty()) {
+            dto.getDestinataires().forEach(userId -> {
+                var sinks = userSinks.get(userId);
+                if (sinks != null) sinks.forEach(sink -> emitToSink(sink, dto, userId));
+            });
+        } else if (dto.getRoleCible() != null && dto.getEtablissementId() != null) {
+            String groupKey = dto.getRoleCible() + "|" + dto.getEtablissementId();
+            var sinks = groupSinks.get(groupKey);
+            if (sinks != null) sinks.forEach(sink -> emitToSink(sink, dto, "broadcast:" + groupKey));
+        }
     }
 
     private void emitToSink(Sinks.Many<ServerSentEvent<NotificationDTO>> sink,
                              NotificationDTO dto, String target) {
+        log.debug("Emit notification target={} dto={}", target, dto);
+
         Sinks.EmitResult result = sink.tryEmitNext(
                 ServerSentEvent.<NotificationDTO>builder()
                         .event("notification")
@@ -93,6 +93,6 @@ public class SsePushService {
     }
 
     public int countActive() {
-        return userSinks.values().stream().mapToInt(CopyOnWriteArraySet::size).sum();
+        return userSinks.values().stream().mapToInt(Set::size).sum();
     }
 }

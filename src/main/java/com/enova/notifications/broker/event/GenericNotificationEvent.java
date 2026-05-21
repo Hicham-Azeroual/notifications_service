@@ -13,7 +13,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GenericNotificationEvent {
-    private String moduleEmetteur ; // " PHARMACIE ", " URGENCES ", " LABO "
+    private ModuleEmetteur moduleEmetteur;
     private String typeAlerte ; // " RUPTURE_STOCK ", " CODE_ROUGE "
     private String niveauGravite ; // " INFO ", " WARNING " , " CRITIQUE "
     private String titre ; // " Rupture de stock : P a r a c t a m o l "

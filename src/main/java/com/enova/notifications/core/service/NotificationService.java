@@ -57,7 +57,7 @@ public class NotificationService {
                     return repository.save(notif);
                 })
                 .map(mapper::toDto)
-                .flatMap(dto -> ssePushService.push(dto).thenReturn(dto));
+                .doOnNext(ssePushService::push);
     }
 
     public Mono<NotificationDTO> marquerCommeLue(String notificationId) {

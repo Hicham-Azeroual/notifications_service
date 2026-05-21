@@ -1,9 +1,9 @@
 package com.enova.notifications.broker.consumer;
 
 import com.enova.notifications.broker.event.GenericNotificationEvent;
+import com.enova.notifications.broker.processor.NotificationProcessorFactory;
 import com.enova.notifications.config.RabbitMQConfig;
 import com.enova.notifications.core.mapper.NotificationMapper;
-import com.enova.notifications.core.model.NotificationDocument;
 import com.enova.notifications.core.service.SsePushService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
@@ -13,14 +13,13 @@ import org.springframework.data.cassandra.core.InsertOptions;
 import org.springframework.data.cassandra.core.ReactiveCassandraOperations;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
+/**
+ * Orchestrateur pur — reçoit depuis RabbitMQ, délègue au bon processor, gère ACK/NACK.
+ * Aucune logique métier ici. Ajouter un module = créer un NotificationProcessor, pas toucher ici.
+ */
 @Component
 @Slf4j
 public class CentralNotificationConsumer {
@@ -28,17 +27,19 @@ public class CentralNotificationConsumer {
     private final ReactiveCassandraOperations cassandraTemplate;
     private final SsePushService ssePushService;
     private final NotificationMapper mapper;
+    private final NotificationProcessorFactory processorFactory;
 
-    // TTL 90 jours défini une seule fois, réutilisé à chaque insert
     private static final InsertOptions TTL_90_DAYS =
             InsertOptions.builder().ttl(Duration.ofDays(90)).build();
 
     public CentralNotificationConsumer(ReactiveCassandraOperations cassandraTemplate,
                                        SsePushService ssePushService,
-                                       NotificationMapper mapper) {
-        this.cassandraTemplate = cassandraTemplate;
-        this.ssePushService    = ssePushService;
-        this.mapper            = mapper;
+                                       NotificationMapper mapper,
+                                       NotificationProcessorFactory processorFactory) {
+        this.cassandraTemplate  = cassandraTemplate;
+        this.ssePushService     = ssePushService;
+        this.mapper             = mapper;
+        this.processorFactory   = processorFactory;
     }
 
     @RabbitListener(
@@ -57,44 +58,17 @@ public class CentralNotificationConsumer {
 
         log.info("Alerte reçue du module [{}] : {}", event.getModuleEmetteur(), event.getTitre());
 
-        Mono.just(event)
-                .map(this::convertToDocument)
-                // insert avec TTL 90 jours — remplace l'@Indexed(expireAfterSeconds) de MongoDB
+        processorFactory.getProcessor(event.getModuleEmetteur())
+                .process(event)
                 .flatMap(doc -> cassandraTemplate.insert(doc, TTL_90_DAYS).map(r -> r.getEntity()))
                 .map(mapper::toDto)
-                .flatMap(ssePushService::push)
-                .doOnSuccess(v -> ack(channel, tag))
+                .doOnSuccess(dto -> ack(channel, tag)) // ACK = Mono terminé avec succès
+                .doOnSuccess(ssePushService::push)     // push SSE best-effort
                 .doOnError(e -> {
-                    log.error("Erreur traitement notif {}", event.getModuleEmetteur(), e);
+                    log.error("Erreur traitement notif module={}", event.getModuleEmetteur(), e);
                     nack(channel, tag);
                 })
                 .subscribe();
-    }
-
-    private NotificationDocument convertToDocument(GenericNotificationEvent event) {
-        return NotificationDocument.builder()
-                .id(UUID.randomUUID())
-                .createdAt(Instant.now())
-                .type(event.getNiveauGravite())
-                .typeAlerte(event.getTypeAlerte())
-                .titre(event.getTitre())
-                .message(event.getMessage())
-                .module(event.getModuleEmetteur())
-                .etablissementId(event.getEtablissementId())
-                .roleCible(event.getRoleCible())
-                .destinataires(event.getDestinatairesSpecifiques())
-                .metadata(toStringMap(event.getDonneesMetier()))
-                .lue(false)
-                .acquittee(false)
-                .resolue(false)
-                .build();
-    }
-
-    // Cassandra ne supporte pas Map<String,Object> — on sérialise les valeurs en String
-    private Map<String, String> toStringMap(Map<String, Object> source) {
-        if (source == null) return null;
-        return source.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> String.valueOf(e.getValue())));
     }
 
     private void ack(Channel channel, long tag) {
