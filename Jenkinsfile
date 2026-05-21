@@ -4,7 +4,7 @@ pipeline {
 
     environment {
         APP_NAME        = 'sih-notifications'
-        DOCKER_HUB_USER = 'hichamazeroual'                        // ton Docker Hub username
+        DOCKER_HUB_USER = 'hichamazeroual'
         IMAGE_NAME      = "${DOCKER_HUB_USER}/${APP_NAME}"
         IMAGE_TAG       = "${BUILD_NUMBER}"
         SONAR_PROJECT   = 'sih-notifications'
@@ -29,8 +29,9 @@ pipeline {
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                     env.GIT_AUTHOR      = sh(script: 'git log -1 --pretty=%an',     returnStdout: true).trim()
                     env.GIT_MSG         = sh(script: 'git log -1 --pretty=%B',      returnStdout: true).trim()
+                    env.BRANCH          = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                 }
-                echo "Branch  : ${env.BRANCH_NAME}"
+                echo "Branch  : ${env.BRANCH}"
                 echo "Commit  : ${env.GIT_COMMIT_SHORT}"
                 echo "Author  : ${env.GIT_AUTHOR}"
                 echo "Message : ${env.GIT_MSG}"
@@ -66,7 +67,6 @@ pipeline {
         // ─────────────────────────────────────────
         stage('SonarQube Analysis') {
             steps {
-                // 'SonarQube' = nom du serveur configuré dans Jenkins → Manage Jenkins → Configure System
                 withSonarQubeEnv('SonarQube') {
                     sh """
                         ./mvnw sonar:sonar \\
@@ -85,7 +85,6 @@ pipeline {
         // ─────────────────────────────────────────
         stage('Quality Gate') {
             steps {
-                // Attendre le résultat de SonarQube (max 3 minutes)
                 timeout(time: 3, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
@@ -116,7 +115,6 @@ pipeline {
         // ─────────────────────────────────────────
         stage('Trivy Scan') {
             steps {
-                // Scan de l'image Docker : CRITICAL et HIGH bloquent le pipeline
                 sh """
                     trivy image \\
                         --exit-code 1 \\
@@ -129,7 +127,6 @@ pipeline {
             }
             post {
                 always {
-                    // Générer aussi un rapport JSON pour archivage
                     sh """
                         trivy image \\
                             --exit-code 0 \\
@@ -146,14 +143,7 @@ pipeline {
         // STAGE 9 — Docker Push (Docker Hub)
         // ─────────────────────────────────────────
         stage('Docker Push') {
-            when {
-                anyOf { branch 'main'; branch 'develop' }
-            }
             steps {
-                // 'dockerhub-credentials' = ID du credential Jenkins
-                // Jenkins → Manage Credentials → Username/Password
-                // Username : ton Docker Hub login
-                // Password : ton Docker Hub access token (pas le mot de passe !)
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-credentials',
                     usernameVariable: 'DOCKER_USER',
@@ -173,9 +163,6 @@ pipeline {
         // STAGE 10 — Deploy (Docker local)
         // ─────────────────────────────────────────
         stage('Deploy') {
-            when {
-                branch 'main'
-            }
             steps {
                 sh """
                     docker stop ${APP_NAME} || true
@@ -194,9 +181,6 @@ pipeline {
         // STAGE 11 — Health Check
         // ─────────────────────────────────────────
         stage('Health Check') {
-            when {
-                branch 'main'
-            }
             steps {
                 script {
                     retry(6) {
@@ -212,9 +196,6 @@ pipeline {
         // STAGE 12 — Load Tests Gatling
         // ─────────────────────────────────────────
         stage('Load Tests') {
-            when {
-                branch 'main'
-            }
             steps {
                 sh './mvnw gatling:test -q'
                 sh './mvnw gatling:test "-Dgatling.simulationClass=com.enova.notifications.load.SseConnectionSimulation" -q'
@@ -232,7 +213,7 @@ pipeline {
     // ─────────────────────────────────────────
     post {
         success {
-            echo "✅ Pipeline SUCCESS — ${APP_NAME}:${IMAGE_TAG}"
+            echo "✅ Pipeline SUCCESS — ${APP_NAME}:${IMAGE_TAG} — branch: ${env.BRANCH}"
         }
         failure {
             echo "❌ Pipeline FAILURE — stage: ${env.STAGE_NAME}"
