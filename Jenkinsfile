@@ -4,7 +4,7 @@ pipeline {
 
     environment {
         APP_NAME        = 'sih-notifications'
-        DOCKER_HUB_USER = 'hichamazeroual'
+        DOCKER_HUB_USER = 'hichamazeroual2002'
         IMAGE_NAME      = "${DOCKER_HUB_USER}/${APP_NAME}"
         IMAGE_TAG       = "${BUILD_NUMBER}"
         SONAR_PROJECT   = 'sih-notifications'
