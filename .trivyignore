@@ -1,0 +1,7 @@
+# CVE dans org.json:json:20090211
+# Source : dépendance transitive du driver Cassandra (java-driver-core:4.13.0)
+# Risque accepté : org.json n'est pas exposé directement, aucune entrée utilisateur
+# ne passe par cette bibliothèque dans notre service de notifications.
+# À corriger quand datastax publiera une version corrigée du driver.
+CVE-2022-45688
+CVE-2023-5072

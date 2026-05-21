@@ -121,6 +121,7 @@ pipeline {
                     trivy image \\
                         --exit-code 1 \\
                         --severity CRITICAL,HIGH \\
+                        --ignorefile .trivyignore \\
                         --no-progress \\
                         --format table \\
                         ${IMAGE_NAME}:${IMAGE_TAG}

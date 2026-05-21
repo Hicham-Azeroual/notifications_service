@@ -32,6 +32,8 @@
 		<gatling.simulationClass>com.enova.notifications.load.RestApiSimulation</gatling.simulationClass>
 		<sonar.organization>hichamazeroual</sonar.organization>
 		<sonar.host.url>http://localhost:9000</sonar.host.url>
+		<!-- Override Netty pour corriger CVE-2026-42xxx (HIGH) -->
+		<netty.version>4.2.13.Final</netty.version>
 	</properties>
 
 	<dependencies>
