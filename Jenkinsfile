@@ -185,7 +185,7 @@ pipeline {
                 script {
                     retry(6) {
                         sleep(time: 10, unit: 'SECONDS')
-                        sh "curl -sf http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"'"
+                        sh "curl -sf http://host.docker.internal:8082/actuator/health | grep -q '\"status\":\"UP\"'"
                     }
                     echo 'Service UP ✅'
                 }
