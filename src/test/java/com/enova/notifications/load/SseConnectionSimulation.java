@@ -45,7 +45,7 @@ public class SseConnectionSimulation extends Simulation {
     // =========================================================
 
     private final HttpProtocolBuilder httpProtocol = http
-            .baseUrl("http://localhost:8081")
+            .baseUrl(System.getProperty("gatling.baseUrl", "http://localhost:8081"))
             .acceptHeader("text/event-stream")
             .userAgentHeader("Gatling-SSE-LoadTest/1.0");
 

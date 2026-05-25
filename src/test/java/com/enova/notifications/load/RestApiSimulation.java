@@ -19,7 +19,7 @@ public class RestApiSimulation extends Simulation {
     // =========================================================
 
     private final HttpProtocolBuilder httpProtocol = http
-            .baseUrl("http://localhost:8081")
+            .baseUrl(System.getProperty("gatling.baseUrl", "http://localhost:8081"))
             .acceptHeader("application/json")
             .contentTypeHeader("application/json")
             .userAgentHeader("Gatling-LoadTest/1.0");

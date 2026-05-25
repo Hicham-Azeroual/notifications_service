@@ -197,8 +197,8 @@ pipeline {
         // ─────────────────────────────────────────
         stage('Load Tests') {
             steps {
-                sh './mvnw gatling:test -q'
-                sh './mvnw gatling:test "-Dgatling.simulationClass=com.enova.notifications.load.SseConnectionSimulation" -q'
+                sh './mvnw gatling:test -Dgatling.baseUrl=http://host.docker.internal:8082 -q'
+                sh './mvnw gatling:test "-Dgatling.simulationClass=com.enova.notifications.load.SseConnectionSimulation" -Dgatling.baseUrl=http://host.docker.internal:8082 -q'
             }
             post {
                 always {
