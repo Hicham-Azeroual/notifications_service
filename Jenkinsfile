@@ -170,7 +170,7 @@ pipeline {
                     docker run -d \
                         --name ${APP_NAME} \
                         --restart unless-stopped \
-                        -p 8081:8081 \
+                        -p 8082:8081 \
                         -e SPRING_PROFILES_ACTIVE=prod \
                         ${IMAGE_NAME}:${IMAGE_TAG}
                 """
@@ -185,7 +185,7 @@ pipeline {
                 script {
                     retry(6) {
                         sleep(time: 10, unit: 'SECONDS')
-                        sh "curl -sf http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"
+                        sh "curl -sf http://localhost:8082/actuator/health | grep -q '\"status\":\"UP\"'"
                     }
                     echo 'Service UP ✅'
                 }
